@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Map from "@/components/Map";
 import { Project, Overlay, InteractionMode, ControlPoint } from "@/lib/types";
@@ -8,6 +8,12 @@ import { DEFAULT_CRS, CRSValue } from "@/lib/projection";
 
 export default function Home() {
   const [mode, setMode] = useState<InteractionMode>("idle");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar automatically when switching to capturing mode (map needs full screen on mobile)
+  useEffect(() => {
+    if (mode === "capturing-ref-point") setSidebarOpen(false);
+  }, [mode]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lng: number; lat: number } | null>(null);
@@ -135,31 +141,62 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-full">
-      <Sidebar
-        selectedProject={selectedProject}
-        onSelectProject={handleSelectProject}
-        mode={mode}
-        onStartCreate={handleStartCreate}
-        onCancelCreate={handleCancelCreate}
-        pendingLocation={pendingLocation}
-        onProjectCreated={handleProjectCreated}
-        overlays={overlays}
-        onOverlayAdded={handleOverlayAdded}
-        onOverlayUpdated={handleOverlayUpdated}
-        onOverlaysLoaded={handleOverlaysLoaded}
-        selectedOverlayId={selectedOverlayId}
-        onSelectOverlay={handleSelectOverlay}
-        onOverlayDeleted={handleOverlayDeleted}
-        onProjectDeleted={handleProjectDeleted}
-        controlPoints={controlPoints}
-        selectedCRS={selectedCRS}
-        onSelectedCRSChange={setSelectedCRS}
-        onStartCapture={handleStartCapture}
-        onControlPointUpdate={handleControlPointUpdate}
-        onControlPointDelete={handleControlPointDelete}
-      />
+    <div className="flex h-full relative overflow-hidden">
+      {/* Mobile backdrop — tap to close */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-10"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar slide wrapper */}
+      <div
+        className={[
+          "fixed md:relative z-20 h-full shrink-0",
+          "transition-transform duration-300 ease-in-out",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "md:translate-x-0",
+        ].join(" ")}
+      >
+        <Sidebar
+          selectedProject={selectedProject}
+          onSelectProject={handleSelectProject}
+          mode={mode}
+          onStartCreate={handleStartCreate}
+          onCancelCreate={handleCancelCreate}
+          pendingLocation={pendingLocation}
+          onProjectCreated={handleProjectCreated}
+          overlays={overlays}
+          onOverlayAdded={handleOverlayAdded}
+          onOverlayUpdated={handleOverlayUpdated}
+          onOverlaysLoaded={handleOverlaysLoaded}
+          selectedOverlayId={selectedOverlayId}
+          onSelectOverlay={handleSelectOverlay}
+          onOverlayDeleted={handleOverlayDeleted}
+          onProjectDeleted={handleProjectDeleted}
+          controlPoints={controlPoints}
+          selectedCRS={selectedCRS}
+          onSelectedCRSChange={setSelectedCRS}
+          onStartCapture={handleStartCapture}
+          onControlPointUpdate={handleControlPointUpdate}
+          onControlPointDelete={handleControlPointDelete}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
+
+      {/* Map — always full width on mobile */}
       <div className="flex-1 relative min-h-0">
+        {/* Hamburger toggle — mobile only, shown when sidebar is closed */}
+        {!sidebarOpen && (
+          <button
+            className="md:hidden absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-2.5 text-gray-700 text-lg leading-none active:bg-gray-100"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+          >
+            ☰
+          </button>
+        )}
         <Map
           selectedProject={selectedProject}
           mode={mode}

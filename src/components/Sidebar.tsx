@@ -84,6 +84,7 @@ interface SidebarProps {
   onStartCapture: () => void;
   onControlPointUpdate: (id: string, fields: Partial<ControlPoint>) => void;
   onControlPointDelete: (id: string) => void;
+  onClose: () => void;
 }
 
 // ── Try-convert helper (called on every render, no stored lat/lng in state) ──
@@ -261,6 +262,7 @@ export default function Sidebar({
   onStartCapture,
   onControlPointUpdate,
   onControlPointDelete,
+  onClose,
 }: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -512,9 +514,18 @@ export default function Sidebar({
   return (
     <div className="w-80 h-full border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-lg font-bold text-gray-900">Zone1</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Jobsite Map Overlays</p>
+      <div className="p-4 border-b border-gray-200 flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Zone1</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Jobsite Map Overlays</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="md:hidden ml-2 p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 active:bg-gray-300"
+          aria-label="Close sidebar"
+        >
+          ✕
+        </button>
       </div>
 
       {mode === "creating" ? (
