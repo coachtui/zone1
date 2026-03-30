@@ -1,65 +1,177 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback } from "react";
+import Sidebar from "@/components/Sidebar";
+import Map from "@/components/Map";
+import { Project, Overlay, InteractionMode, ControlPoint } from "@/lib/types";
+import { DEFAULT_CRS, CRSValue } from "@/lib/projection";
 
 export default function Home() {
+  const [mode, setMode] = useState<InteractionMode>("idle");
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+  const [pendingLocation, setPendingLocation] = useState<{ lng: number; lat: number } | null>(null);
+  const [overlays, setOverlays] = useState<Overlay[]>([]);
+
+  // Control point georeferencing state (reset when overlay is deselected)
+  const [controlPoints, setControlPoints] = useState<ControlPoint[]>([]);
+  const [selectedCRS, setSelectedCRS] = useState<CRSValue>(DEFAULT_CRS);
+
+  // ── Map interaction ──────────────────────────────────────────────────────
+
+  const handleMapClick = useCallback(
+    (lng: number, lat: number) => {
+      if (mode === "creating") {
+        setPendingLocation({ lng, lat });
+      }
+    },
+    [mode]
+  );
+
+  // ── Project lifecycle ────────────────────────────────────────────────────
+
+  const handleProjectCreated = useCallback((project: Project) => {
+    setSelectedProject(project);
+    setMode("idle");
+    setPendingLocation(null);
+  }, []);
+
+  const handleStartCreate = useCallback(() => {
+    setMode("creating");
+    setSelectedProject(null);
+    setPendingLocation(null);
+    setOverlays([]);
+    setSelectedOverlayId(null);
+    setControlPoints([]);
+  }, []);
+
+  const handleCancelCreate = useCallback(() => {
+    setMode("idle");
+    setPendingLocation(null);
+  }, []);
+
+  const handleSelectProject = useCallback((project: Project | null) => {
+    setSelectedProject(project);
+    setOverlays([]);
+    setSelectedOverlayId(null);
+    setMode("idle");
+    setControlPoints([]);
+  }, []);
+
+  // ── Overlay lifecycle ────────────────────────────────────────────────────
+
+  const handleOverlayAdded = useCallback((overlay: Overlay) => {
+    setOverlays((prev) => [overlay, ...prev]);
+  }, []);
+
+  const handleOverlayUpdated = useCallback((overlay: Overlay) => {
+    setOverlays((prev) => prev.map((o) => (o.id === overlay.id ? overlay : o)));
+  }, []);
+
+  const handleOverlaysLoaded = useCallback((loaded: Overlay[]) => {
+    setOverlays(loaded);
+  }, []);
+
+  const handleSelectOverlay = useCallback((overlayId: string | null) => {
+    setSelectedOverlayId(overlayId);
+    setMode(overlayId ? "positioning" : "idle");
+    if (!overlayId) {
+      setControlPoints([]);
+    }
+  }, []);
+
+  const handleOverlayDeleted = useCallback((overlayId: string) => {
+    setOverlays((prev) => prev.filter((o) => o.id !== overlayId));
+    setSelectedOverlayId(null);
+    setMode("idle");
+    setControlPoints([]);
+  }, []);
+
+  const handleProjectDeleted = useCallback(() => {
+    setSelectedProject(null);
+    setOverlays([]);
+    setSelectedOverlayId(null);
+    setMode("idle");
+    setControlPoints([]);
+  }, []);
+
+  // ── Control point georeferencing ─────────────────────────────────────────
+
+  /** Sidebar requests capture mode — map will capture the next click. */
+  const handleStartCapture = useCallback(() => {
+    setMode("capturing-ref-point");
+  }, []);
+
+  /** Map captured image-space click → append a new control point. */
+  const handleControlPointCaptured = useCallback(
+    (px: number, py: number, imgW: number, imgH: number) => {
+      const newPoint: ControlPoint = {
+        id: crypto.randomUUID(),
+        imageX: Math.round(px),
+        imageY: Math.round(py),
+        imgW,
+        imgH,
+        northing: "",
+        easting: "",
+        elevation: "",
+      };
+      setControlPoints((prev) => [...prev, newPoint]);
+      setMode("positioning"); // return to normal interaction
+    },
+    []
+  );
+
+  const handleControlPointUpdate = useCallback(
+    (id: string, fields: Partial<ControlPoint>) => {
+      setControlPoints((prev) =>
+        prev.map((cp) => (cp.id === id ? { ...cp, ...fields } : cp))
+      );
+    },
+    []
+  );
+
+  const handleControlPointDelete = useCallback((id: string) => {
+    setControlPoints((prev) => prev.filter((cp) => cp.id !== id));
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-full">
+      <Sidebar
+        selectedProject={selectedProject}
+        onSelectProject={handleSelectProject}
+        mode={mode}
+        onStartCreate={handleStartCreate}
+        onCancelCreate={handleCancelCreate}
+        pendingLocation={pendingLocation}
+        onProjectCreated={handleProjectCreated}
+        overlays={overlays}
+        onOverlayAdded={handleOverlayAdded}
+        onOverlayUpdated={handleOverlayUpdated}
+        onOverlaysLoaded={handleOverlaysLoaded}
+        selectedOverlayId={selectedOverlayId}
+        onSelectOverlay={handleSelectOverlay}
+        onOverlayDeleted={handleOverlayDeleted}
+        onProjectDeleted={handleProjectDeleted}
+        controlPoints={controlPoints}
+        selectedCRS={selectedCRS}
+        onSelectedCRSChange={setSelectedCRS}
+        onStartCapture={handleStartCapture}
+        onControlPointUpdate={handleControlPointUpdate}
+        onControlPointDelete={handleControlPointDelete}
+      />
+      <div className="flex-1 relative min-h-0">
+        <Map
+          selectedProject={selectedProject}
+          mode={mode}
+          pendingLocation={pendingLocation}
+          onMapClick={handleMapClick}
+          overlays={overlays}
+          selectedOverlayId={selectedOverlayId}
+          onSelectOverlay={handleSelectOverlay}
+          onOverlayUpdated={handleOverlayUpdated}
+          onControlPointCaptured={handleControlPointCaptured}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
