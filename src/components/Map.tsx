@@ -389,14 +389,42 @@ export default function Map({
         map.addListener("mouseup", handleMouseUp);
 
         // --- Geolocate button ---
+        // Strategy: run watchPosition for GATHER_MS with high accuracy and
+        // maximumAge=0 to force fresh GPS readings.  Collect all fixes, then
+        // pick the one with the best (lowest) reported accuracy radius.
+        // The button is disabled during acquisition to prevent overlapping requests.
+        const GATHER_MS = 3500;
+
         const geoBtn = document.createElement("button");
         geoBtn.title = "Show my location";
         geoBtn.style.cssText =
           "background:#fff;border:none;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer;padding:8px;margin:10px;font-size:18px;line-height:1;";
         geoBtn.textContent = "◎";
         geoBtn.addEventListener("click", () => {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          if (geoBtn.disabled) return;
+          geoBtn.disabled = true;
+          geoBtn.textContent = "…";
+
+          const fixes: GeolocationPosition[] = [];
+          const watchId = navigator.geolocation.watchPosition(
+            (pos) => { fixes.push(pos); },
+            (err) => { console.warn("Geolocation error:", err.message); },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+          );
+
+          setTimeout(() => {
+            navigator.geolocation.clearWatch(watchId);
+            geoBtn.disabled = false;
+            geoBtn.textContent = "◎";
+
+            if (fixes.length === 0) return;
+
+            // Pick the fix with the smallest accuracy radius (best GPS fix).
+            const best = fixes.reduce((a, b) =>
+              a.coords.accuracy <= b.coords.accuracy ? a : b
+            );
+            const latLng = { lat: best.coords.latitude, lng: best.coords.longitude };
+
             if (markerRef.current) {
               markerRef.current.setPosition(latLng);
             } else {
@@ -415,7 +443,7 @@ export default function Map({
               });
             }
             map.panTo(latLng);
-          });
+          }, GATHER_MS);
         });
         map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(geoBtn);
       });
