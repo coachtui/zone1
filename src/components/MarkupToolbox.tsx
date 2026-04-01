@@ -54,7 +54,7 @@ export default function MarkupToolbox({
   planScale,
   onPlanScaleChange,
   onClearMarkup,
-}: Props) {
+}: Props): React.ReactNode {
   const hasFill = activeTool === 'rectangle' || activeTool === 'circle';
   const showStyle = activeTool !== 'none';
   const showMeasure = activeTool === 'measure';
@@ -69,6 +69,8 @@ export default function MarkupToolbox({
             <button
               key={t.id}
               title={t.title}
+              aria-label={t.title}
+              aria-pressed={activeTool === t.id}
               onClick={() => onToolChange(activeTool === t.id && t.id !== 'none' ? 'none' : t.id)}
               className={[
                 'w-9 h-9 rounded-lg text-base font-medium transition-colors leading-none',
@@ -83,6 +85,7 @@ export default function MarkupToolbox({
           <div className="w-px h-6 bg-gray-200 mx-1" />
           <button
             title="Clear all markup"
+            aria-label="Clear all markup"
             onClick={onClearMarkup}
             className="w-9 h-9 rounded-lg text-sm bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
           >

@@ -336,7 +336,7 @@ export default function Map({
   overlays, selectedOverlayId, onSelectOverlay, onOverlayUpdated, onControlPointCaptured,
   activeTool, markupShapes, markupStyle, measureUnit,
   selectedShapeId, onShapeAdded, onShapeSelected, onShapeUpdated, onShapeDeleted,
-}: MapProps) {
+}: MapProps): React.ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
@@ -345,8 +345,7 @@ export default function Map({
   const applyOverlaysRef = useRef<((overlays: Overlay[], selectedId: string | null) => void) | null>(null);
   const pendingMarkerRef = useRef<google.maps.Marker | null>(null);
   const MarkerRef = useRef<typeof google.maps.Marker | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const SymbolPathRef = useRef<any>(null);
+  const SymbolPathRef = useRef<typeof google.maps.SymbolPath | null>(null);
 
   // Markup refs
   const markupContainerRef = useRef<HTMLDivElement | null>(null);
@@ -552,20 +551,32 @@ export default function Map({
       const GATHER_MS = 3500;
       const geoBtn = document.createElement('button');
       geoBtn.title = 'Show my location';
+      geoBtn.setAttribute('aria-label', 'Show my location');
       geoBtn.style.cssText = 'background:#fff;border:none;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer;padding:8px;margin:10px;font-size:18px;line-height:1;';
       geoBtn.textContent = '◎';
       geoBtn.addEventListener('click', () => {
         if (geoBtn.disabled) return;
         geoBtn.disabled = true; geoBtn.textContent = '…';
+        let hadError = false;
         const fixes: GeolocationPosition[] = [];
         const watchId = navigator.geolocation.watchPosition(
           pos => fixes.push(pos),
-          err => console.warn('Geolocation error:', err.message),
+          err => {
+            console.warn('Geolocation error:', err.message);
+            hadError = true;
+          },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
         );
         setTimeout(() => {
           navigator.geolocation.clearWatch(watchId);
-          geoBtn.disabled = false; geoBtn.textContent = '◎';
+          geoBtn.disabled = false;
+          if (hadError && fixes.length === 0) {
+            geoBtn.textContent = '⚠';
+            geoBtn.title = 'Location unavailable — check permissions';
+            setTimeout(() => { geoBtn.textContent = '◎'; geoBtn.title = 'Show my location'; }, 3000);
+            return;
+          }
+          geoBtn.textContent = '◎';
           if (!fixes.length) return;
           const best = fixes.reduce((a, b) => a.coords.accuracy <= b.coords.accuracy ? a : b);
           const latLng = { lat: best.coords.latitude, lng: best.coords.longitude };

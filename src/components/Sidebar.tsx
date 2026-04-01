@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Project, Overlay, InteractionMode, ControlPoint } from "@/lib/types";
 import { getProjects, createProject, deleteProject } from "@/actions/projects";
 import {
@@ -271,6 +271,7 @@ export default function Sidebar({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
@@ -282,11 +283,11 @@ export default function Sidebar({
   // ── Derived: counts and preview (computed every render, cheap) ─────────────
   const validPointCount = controlPoints.filter((cp) => "lat" in tryConvert(cp, selectedCRS)).length;
 
-  const affinePreview = (() => {
+  const affinePreview = useMemo(() => {
     if (validPointCount < 2) return null;
     const result = computeAffineFromControlPoints(controlPoints, selectedCRS);
     return "error" in result ? null : result;
-  })();
+  }, [validPointCount, controlPoints, selectedCRS]);
 
   // ── Data loading ─────────────────────────────────────────────────────────
 
@@ -307,6 +308,7 @@ export default function Sidebar({
   const handleSaveProject = async () => {
     if (!name.trim() || !pendingLocation) return;
     setSaving(true);
+    setActionError(null);
     try {
       const project = await createProject({
         name: name.trim(),
@@ -321,6 +323,7 @@ export default function Sidebar({
       onProjectCreated(project);
     } catch (err) {
       console.error("Failed to create project:", err);
+      setActionError("Failed to save project. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -330,12 +333,14 @@ export default function Sidebar({
     if (!selectedProject) return;
     if (!confirm(`Delete "${selectedProject.name}" and all its overlays?`)) return;
     setDeleting(selectedProject.id);
+    setActionError(null);
     try {
       await deleteProject(selectedProject.id);
       setProjects((prev) => prev.filter((p) => p.id !== selectedProject.id));
       onProjectDeleted(selectedProject.id);
     } catch (err) {
       console.error("Failed to delete project:", err);
+      setActionError("Failed to delete project. Please try again.");
     } finally {
       setDeleting(null);
     }
@@ -383,6 +388,7 @@ export default function Sidebar({
       onOverlayAdded(overlay);
     } catch (err) {
       console.error("Failed to upload overlay:", err);
+      setActionError("Failed to upload plan. Check the file and try again.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -556,6 +562,11 @@ export default function Sidebar({
               Click the map to set the project center
             </div>
           )}
+          {actionError && (
+            <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded border border-red-200">
+              {actionError}
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               onClick={handleSaveProject}
@@ -609,15 +620,21 @@ export default function Sidebar({
               accept="image/png,image/jpeg,image/webp"
               onChange={handleFileUpload}
               className="hidden"
+              aria-label="Upload overlay image"
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => { setActionError(null); fileInputRef.current?.click(); }}
               disabled={uploading}
               className="w-full px-3 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
             >
               {uploading ? "Uploading..." : "+ Upload Overlay Image"}
             </button>
-            <p className="text-xs text-gray-400 mt-1.5">PNG, JPG, or WebP. Will be placed at project center.</p>
+            {actionError && (
+              <p className="text-xs text-red-600 mt-1.5">{actionError}</p>
+            )}
+            {!actionError && (
+              <p className="text-xs text-gray-400 mt-1.5">PNG, JPG, or WebP. Will be placed at project center.</p>
+            )}
           </div>
 
           {/* Overlay list */}
