@@ -3,33 +3,59 @@
 import { useState, useCallback, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Map from "@/components/Map";
-import { Project, Overlay, InteractionMode, ControlPoint } from "@/lib/types";
+import MarkupToolbox, { PLAN_SCALES } from "@/components/MarkupToolbox";
+import { Project, Overlay, InteractionMode, ControlPoint, MarkupTool, MarkupStyle, MarkupShape } from "@/lib/types";
 import { DEFAULT_CRS, CRSValue } from "@/lib/projection";
 
 export default function Home() {
   const [mode, setMode] = useState<InteractionMode>("idle");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Close sidebar automatically when switching to capturing mode (map needs full screen on mobile)
   useEffect(() => {
     if (mode === "capturing-ref-point") setSidebarOpen(false);
   }, [mode]);
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lng: number; lat: number } | null>(null);
   const [overlays, setOverlays] = useState<Overlay[]>([]);
 
-  // Control point georeferencing state (reset when overlay is deselected)
   const [controlPoints, setControlPoints] = useState<ControlPoint[]>([]);
   const [selectedCRS, setSelectedCRS] = useState<CRSValue>(DEFAULT_CRS);
+
+  // ── Markup state ─────────────────────────────────────────────────────────
+
+  const [activeTool, setActiveTool] = useState<MarkupTool>('none');
+  const [markupShapes, setMarkupShapes] = useState<MarkupShape[]>([]);
+  const [markupStyle, setMarkupStyle] = useState<MarkupStyle>({
+    color: '#ef4444',
+    lineWidth: 2,
+    fillOpacity: 0,
+  });
+  const [measureUnit, setMeasureUnit] = useState<'ft' | 'm'>('ft');
+  const [planScale, setPlanScale] = useState(PLAN_SCALES[1].label); // 1"=20' default
+
+  const handleToolChange = useCallback((tool: MarkupTool) => {
+    setActiveTool(tool);
+  }, []);
+
+  const handleStyleChange = useCallback((partial: Partial<MarkupStyle>) => {
+    setMarkupStyle((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  const handleShapeAdded = useCallback((shape: MarkupShape) => {
+    setMarkupShapes((prev) => [...prev, shape]);
+  }, []);
+
+  const handleClearMarkup = useCallback(() => {
+    setMarkupShapes([]);
+  }, []);
 
   // ── Map interaction ──────────────────────────────────────────────────────
 
   const handleMapClick = useCallback(
     (lng: number, lat: number) => {
-      if (mode === "creating") {
-        setPendingLocation({ lng, lat });
-      }
+      if (mode === "creating") setPendingLocation({ lng, lat });
     },
     [mode]
   );
@@ -81,9 +107,7 @@ export default function Home() {
   const handleSelectOverlay = useCallback((overlayId: string | null) => {
     setSelectedOverlayId(overlayId);
     setMode(overlayId ? "positioning" : "idle");
-    if (!overlayId) {
-      setControlPoints([]);
-    }
+    if (!overlayId) setControlPoints([]);
   }, []);
 
   const handleOverlayDeleted = useCallback((overlayId: string) => {
@@ -103,12 +127,10 @@ export default function Home() {
 
   // ── Control point georeferencing ─────────────────────────────────────────
 
-  /** Sidebar requests capture mode — map will capture the next click. */
   const handleStartCapture = useCallback(() => {
     setMode("capturing-ref-point");
   }, []);
 
-  /** Map captured image-space click → append a new control point. */
   const handleControlPointCaptured = useCallback(
     (px: number, py: number, imgW: number, imgH: number) => {
       const newPoint: ControlPoint = {
@@ -122,7 +144,7 @@ export default function Home() {
         elevation: "",
       };
       setControlPoints((prev) => [...prev, newPoint]);
-      setMode("positioning"); // return to normal interaction
+      setMode("positioning");
     },
     []
   );
@@ -142,7 +164,7 @@ export default function Home() {
 
   return (
     <div className="flex h-full relative overflow-hidden">
-      {/* Mobile backdrop — tap to close */}
+      {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/40 z-10"
@@ -150,7 +172,7 @@ export default function Home() {
         />
       )}
 
-      {/* Sidebar slide wrapper */}
+      {/* Sidebar */}
       <div
         className={[
           "fixed md:relative z-20 h-full shrink-0",
@@ -185,9 +207,8 @@ export default function Home() {
         />
       </div>
 
-      {/* Map — always full width on mobile */}
+      {/* Map area */}
       <div className="flex-1 relative min-h-0">
-        {/* Hamburger toggle — mobile only, shown when sidebar is closed */}
         {!sidebarOpen && (
           <button
             className="md:hidden absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-2.5 text-gray-700 text-lg leading-none active:bg-gray-100"
@@ -197,6 +218,7 @@ export default function Home() {
             ☰
           </button>
         )}
+
         <Map
           selectedProject={selectedProject}
           mode={mode}
@@ -207,6 +229,23 @@ export default function Home() {
           onSelectOverlay={handleSelectOverlay}
           onOverlayUpdated={handleOverlayUpdated}
           onControlPointCaptured={handleControlPointCaptured}
+          activeTool={activeTool}
+          markupShapes={markupShapes}
+          markupStyle={markupStyle}
+          measureUnit={measureUnit}
+          onShapeAdded={handleShapeAdded}
+        />
+
+        <MarkupToolbox
+          activeTool={activeTool}
+          onToolChange={handleToolChange}
+          style={markupStyle}
+          onStyleChange={handleStyleChange}
+          measureUnit={measureUnit}
+          onMeasureUnitChange={setMeasureUnit}
+          planScale={planScale}
+          onPlanScaleChange={setPlanScale}
+          onClearMarkup={handleClearMarkup}
         />
       </div>
     </div>

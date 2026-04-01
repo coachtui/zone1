@@ -4,6 +4,27 @@ export type InteractionMode =
   | "positioning"
   | "capturing-ref-point";
 
+export type MarkupTool = 'none' | 'rectangle' | 'circle' | 'line' | 'polyline' | 'measure';
+
+export interface MarkupStyle {
+  color: string;
+  lineWidth: number;
+  fillOpacity: number;
+}
+
+export interface MarkupShape {
+  id: string;
+  type: 'rectangle' | 'circle' | 'line' | 'polyline' | 'measure';
+  /**
+   * rectangle: [corner1, corner2] (diagonal, screen-space axis-aligned)
+   * circle: [center, edge]
+   * line: [p1, p2]
+   * polyline/measure: ordered 2+ points
+   */
+  points: { lat: number; lng: number }[];
+  style: MarkupStyle;
+}
+
 /** A single control point used to georeference an overlay. */
 export interface ControlPoint {
   id: string;
