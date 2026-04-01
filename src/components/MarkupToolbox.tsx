@@ -69,7 +69,7 @@ export default function MarkupToolbox({
             <button
               key={t.id}
               title={t.title}
-              onClick={() => onToolChange(t.id)}
+              onClick={() => onToolChange(activeTool === t.id && t.id !== 'none' ? 'none' : t.id)}
               className={[
                 'w-9 h-9 rounded-lg text-base font-medium transition-colors leading-none',
                 activeTool === t.id

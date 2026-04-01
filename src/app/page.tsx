@@ -39,6 +39,14 @@ export default function Home() {
     setActiveTool(tool);
   }, []);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveTool('none');
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   const handleStyleChange = useCallback((partial: Partial<MarkupStyle>) => {
     setMarkupStyle((prev) => ({ ...prev, ...partial }));
   }, []);
