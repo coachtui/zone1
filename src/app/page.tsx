@@ -27,13 +27,14 @@ export default function Home() {
 
   const [activeTool, setActiveTool] = useState<MarkupTool>('none');
   const [markupShapes, setMarkupShapes] = useState<MarkupShape[]>([]);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
   const [markupStyle, setMarkupStyle] = useState<MarkupStyle>({
     color: '#ef4444',
     lineWidth: 2,
     fillOpacity: 0,
   });
   const [measureUnit, setMeasureUnit] = useState<'ft' | 'm'>('ft');
-  const [planScale, setPlanScale] = useState(PLAN_SCALES[1].label); // 1"=20' default
+  const [planScale, setPlanScale] = useState(PLAN_SCALES[1].label);
 
   const handleToolChange = useCallback((tool: MarkupTool) => {
     setActiveTool(tool);
@@ -55,8 +56,22 @@ export default function Home() {
     setMarkupShapes((prev) => [...prev, shape]);
   }, []);
 
+  const handleShapeSelected = useCallback((id: string | null) => {
+    setSelectedShapeId(id);
+  }, []);
+
+  const handleShapeUpdated = useCallback((shape: MarkupShape) => {
+    setMarkupShapes((prev) => prev.map((s) => (s.id === shape.id ? shape : s)));
+  }, []);
+
+  const handleShapeDeleted = useCallback((id: string) => {
+    setMarkupShapes((prev) => prev.filter((s) => s.id !== id));
+    setSelectedShapeId(null);
+  }, []);
+
   const handleClearMarkup = useCallback(() => {
     setMarkupShapes([]);
+    setSelectedShapeId(null);
   }, []);
 
   // ── Map interaction ──────────────────────────────────────────────────────
@@ -241,7 +256,11 @@ export default function Home() {
           markupShapes={markupShapes}
           markupStyle={markupStyle}
           measureUnit={measureUnit}
+          selectedShapeId={selectedShapeId}
           onShapeAdded={handleShapeAdded}
+          onShapeSelected={handleShapeSelected}
+          onShapeUpdated={handleShapeUpdated}
+          onShapeDeleted={handleShapeDeleted}
         />
 
         <MarkupToolbox
