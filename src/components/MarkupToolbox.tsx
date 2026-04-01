@@ -60,7 +60,7 @@ export default function MarkupToolbox({
   const showMeasure = activeTool === 'measure';
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[600] pointer-events-none">
       <div className="pointer-events-auto bg-white/95 backdrop-blur rounded-xl shadow-xl border border-gray-200 px-2 py-2 flex flex-col gap-2 min-w-max">
 
         {/* Tool row */}
